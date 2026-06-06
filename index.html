@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Digital Speedometer</title>
+  
+  <style>
+    /* Reset and Base Styles */
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #000000;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Big Digital Speedometer (Flexes to fill available space) */
+    .speed-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #speedValue {
+      /* vmin scales the font based on the smallest screen dimension, keeping it huge */
+      font-size: 40vmin; 
+      font-weight: 900;
+      line-height: 1;
+      text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+    }
+
+    .speed-unit {
+      font-size: 8vmin;
+      font-weight: bold;
+      color: #888888;
+      margin-top: -10px;
+    }
+
+    /* Telemetry Panel (Bottom) */
+    .telemetry-panel {
+      display: flex;
+      justify-content: space-evenly;
+      align-items: center;
+      padding: 25px 10px;
+      background-color: #111111;
+      border-top: 2px solid #333333;
+    }
+
+    .data-box {
+      text-align: center;
+      width: 45%;
+    }
+
+    .data-label {
+      font-size: 14px;
+      color: #888888;
+      letter-spacing: 2px;
+      margin-bottom: 5px;
+    }
+
+    .data-value {
+      font-size: 28px;
+      font-weight: bold;
+      color: #00ffcc; /* Bright cyan for contrast */
+    }
+
+    /* Landscape Mode - Hide the Telemetry Panel completely */
+    @media (orientation: landscape) {
+      .telemetry-panel {
+        display: none; 
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="speed-container">
+    <div id="speedValue">0</div>
+    <div class="speed-unit">MPH</div>
+  </div>
+
+  <div id="telemetryPanel" class="telemetry-panel">
+    <div class="data-box">
+      <div class="data-label">ALTITUDE</div>
+      <div id="altValue" class="data-value">-- ft</div>
+    </div>
+    <div class="data-box">
+      <div class="data-label">DIRECTION</div>
+      <div id="dirValue" class="data-value">--</div>
+    </div>
+  </div>
+
+  <script>
+    // Helper function to convert compass degrees (0-360) into readable letters
+    function getDirectionString(heading) {
+      if (heading === null || isNaN(heading)) return "--";
+      const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+      // Divides the 360 degree circle into 8 slices of 45 degrees
+      const index = Math.round(((heading %= 360) < 0 ? heading + 360 : heading) / 45) % 8;
+      return directions[index];
+    }
+
+    // Start GPS Tracking if supported by the browser
+    if ("geolocation" in navigator) {
+      navigator.geolocation.watchPosition(
+        (position) => {
+          
+          // 1. SPEED: Convert Meters per Second to MPH
+          let speedMps = position.coords.speed;
+          // Phones return null when standing perfectly still indoors, fallback to 0
+          if (speedMps === null) speedMps = 0; 
+          let speedMph = Math.round(speedMps * 2.23694);
+          document.getElementById('speedValue').innerText = speedMph;
+
+          // 2. ALTITUDE: Convert Meters to Feet
+          let altMeters = position.coords.altitude;
+          if (altMeters !== null) {
+            let altFeet = Math.round(altMeters * 3.28084);
+            document.getElementById('altValue').innerText = altFeet + " ft";
+          }
+
+          // 3. DIRECTION (Heading): Convert degrees to compass points
+          let headingDegrees = position.coords.heading;
+          // Heading requires actual movement to calculate on most phones
+          if (speedMph > 0 && headingDegrees !== null) {
+            document.getElementById('dirValue').innerText = getDirectionString(headingDegrees);
+          }
+        },
+        (error) => {
+          console.warn("GPS Error:", error.message);
+          // Optional: Display error state if location services are disabled
+          if(error.code === 1) {
+             document.getElementById('speedValue').innerText = "GPS";
+             document.getElementById('dirValue').innerText = "DENIED";
+          }
+        },
+        {
+          enableHighAccuracy: true, // Forces maximum precision
+          maximumAge: 0             // Demands fresh data, no cached locations
+        }
+      );
+    } else {
+      document.getElementById('speedValue').innerText = "N/A";
+      alert("Geolocation is not supported by your browser.");
+    }
+  </script>
+
+</body>
+</html>
