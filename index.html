@@ -22,48 +22,46 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       margin: 0;
       padding: 0;
+      height: 100%;
+      height: 100dvh; 
       width: 100vw;
-      height: 100vh;
       overflow: hidden; 
       position: relative; 
     }
 
-    /* Shifted slightly higher so the telemetry has plenty of breathing room */
-    .speed-cluster {
-      position: absolute;
-      top: 40%; 
-      left: 50%;
-      transform: translate(-50%, -50%);
+    .speed-container {
+      height: 100%;
+      width: 100%;
       display: flex;
       flex-direction: column;
+      justify-content: center;
       align-items: center;
-      width: 100%;
     }
 
     #speedValue {
-      font-size: 75vmin; 
+      font-size: 85vmin; 
       font-weight: 900;
       line-height: 0.8; 
       text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+      margin-top: -5dvh; 
     }
 
     .speed-unit {
-      font-size: 10vmin; 
+      font-size: 12vmin; 
       font-weight: bold;
       color: #888888;
-      margin-top: 10px;
+      margin-top: 5px;
     }
 
-    /* Brute-force lift: Forces the text 12% up the screen, bypassing the browser's lies */
-    .telemetry-cluster {
+    .telemetry-panel {
       position: absolute;
-      bottom: 12vh; 
+      bottom: 8dvh; 
       left: 0;
       width: 100%;
       display: flex;
       justify-content: space-evenly;
       align-items: center;
-      pointer-events: none;
+      pointer-events: none; 
     }
 
     .data-box {
@@ -85,23 +83,20 @@
     }
 
     @media (orientation: landscape) {
-      .telemetry-cluster {
+      .telemetry-panel {
         display: none; 
-      }
-      .speed-cluster {
-        top: 50%; 
       }
     }
   </style>
 </head>
 <body>
 
-  <div class="speed-cluster">
+  <div class="speed-container">
     <div id="speedValue">0</div>
     <div class="speed-unit">MPH</div>
   </div>
 
-  <div id="telemetryPanel" class="telemetry-cluster">
+  <div id="telemetryPanel" class="telemetry-panel">
     <div class="data-box">
       <div class="data-label">ALTITUDE</div>
       <div id="altValue" class="data-value">-- ft</div>
