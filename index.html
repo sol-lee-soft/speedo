@@ -8,30 +8,33 @@
   <link rel="manifest" href="manifest.json">
   
   <meta name="theme-color" content="#000000">
+  <meta name="background-color" content="#000000">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <style>
-    html, body {
+    /* Forces the outermost container to stay absolutely black */
+    html {
       background-color: #000000 !important;
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      height: 100vh;
-      width: 100vw;
+      color-scheme: dark;
     }
 
     body {
+      background-color: #000000 !important;
       color: #ffffff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
       display: flex;
       flex-direction: column;
+      height: 100vh;
+      width: 100vw;
       overflow: hidden;
-      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      box-sizing: border-box;
     }
 
-    /* Speed Container acts as a giant button now */
+    /* Big Digital Speedometer (Flexes to fill available space) */
     .speed-container {
       flex: 1;
       display: flex;
@@ -39,7 +42,6 @@
       justify-content: center;
       align-items: center;
       background-color: #000000;
-      cursor: pointer; /* Gives a visual hint it can be tapped */
     }
 
     #speedValue {
@@ -56,6 +58,7 @@
       margin-top: -10px;
     }
 
+    /* Telemetry Panel (Bottom) */
     .telemetry-panel {
       display: flex;
       justify-content: space-evenly;
@@ -63,6 +66,8 @@
       padding: 25px 10px;
       background-color: #111111;
       border-top: 2px solid #333333;
+      /* Adds dynamic padding so text clears the navigation buttons if necessary */
+      padding-bottom: calc(25px + env(safe-area-inset-bottom));
     }
 
     .data-box {
@@ -83,16 +88,21 @@
       color: #00ffcc; 
     }
 
+    /* Landscape Mode - Hide the Telemetry Panel completely */
     @media (orientation: landscape) {
       .telemetry-panel {
         display: none; 
+      }
+      .speed-container {
+        /* Ensures the background stays perfectly black behind navigation bars in landscape */
+        padding-bottom: env(safe-area-inset-bottom);
       }
     }
   </style>
 </head>
 <body>
 
-  <div class="speed-container" onclick="toggleImmersiveFullscreen()">
+  <div class="speed-container">
     <div id="speedValue">0</div>
     <div class="speed-unit">MPH</div>
   </div>
@@ -116,20 +126,6 @@
       const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
       const index = Math.round(((heading %= 360) < 0 ? heading + 360 : heading) / 45) % 8;
       return directions[index];
-    }
-
-    // New Function: Handles sliding away the phone's navigation bar
-    function toggleImmersiveFullscreen() {
-      if (!document.fullscreenElement) {
-        // Request edge-to-edge layout immersion from the operating system
-        document.documentElement.requestFullscreen()
-          .catch((err) => {
-            console.warn(`Error enabling immersive mode: ${err.message}`);
-          });
-      } else {
-        // If already fullscreen, tap again to bring the system bars back
-        document.exitFullscreen();
-      }
     }
 
     async function requestWakeLock() {
