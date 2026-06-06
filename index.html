@@ -22,13 +22,15 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       margin: 0;
       padding: 0;
-      height: 100vh;
+      /* dvh accounts for the system bars so your layout never hides beneath them */
+      height: 100%;
+      height: 100dvh; 
       width: 100vw;
       overflow: hidden; 
       position: relative; 
     }
 
-    /* Speed container fills 100% of the screen */
+    /* Speed container fills the dynamic screen */
     .speed-container {
       height: 100%;
       width: 100%;
@@ -39,24 +41,24 @@
     }
 
     #speedValue {
-      font-size: 85vmin; /* Pushed to the absolute limits for 2 digits */
+      font-size: 85vmin; 
       font-weight: 900;
-      line-height: 0.8; /* Tightened so the numbers don't push the MPH down too far */
+      line-height: 0.8; 
       text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
-      margin-top: -5vh; /* Shifts the giant number slightly up to balance the screen */
+      margin-top: -5dvh; /* Shifted up slightly to balance the screen dynamically */
     }
 
     .speed-unit {
-      font-size: 12vmin; /* Scaled up to match the giant number */
+      font-size: 12vmin; 
       font-weight: bold;
       color: #888888;
       margin-top: 5px;
     }
 
-    /* Floating Telemetry Panel - Anchored to the bottom */
+    /* Floating Telemetry Panel */
     .telemetry-panel {
       position: absolute;
-      bottom: calc(40px + env(safe-area-inset-bottom)); 
+      bottom: 8dvh; /* Forces the text to float cleanly above any bottom system bars */
       left: 0;
       width: 100%;
       display: flex;
