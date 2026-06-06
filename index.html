@@ -24,16 +24,14 @@
       padding: 0;
       width: 100vw;
       height: 100vh;
-      /* Webkit magic bullet to prevent mobile browsers from miscalculating the height */
-      height: -webkit-fill-available; 
       overflow: hidden; 
-      position: relative; /* Allows us to pin elements directly to the glass */
+      position: relative; 
     }
 
-    /* Pinned exactly to the center of the screen */
+    /* Shifted slightly higher so the telemetry has plenty of breathing room */
     .speed-cluster {
       position: absolute;
-      top: 45%; /* Locked slightly above dead-center for visual balance */
+      top: 40%; 
       left: 50%;
       transform: translate(-50%, -50%);
       display: flex;
@@ -56,10 +54,10 @@
       margin-top: 10px;
     }
 
-    /* Pinned safely above the white bar zone */
+    /* Brute-force lift: Forces the text 12% up the screen, bypassing the browser's lies */
     .telemetry-cluster {
       position: absolute;
-      bottom: calc(60px + env(safe-area-inset-bottom)); /* Locked firmly above the home button zone */
+      bottom: 12vh; 
       left: 0;
       width: 100%;
       display: flex;
@@ -91,7 +89,7 @@
         display: none; 
       }
       .speed-cluster {
-        top: 50%; /* Re-centers perfectly in landscape */
+        top: 50%; 
       }
     }
   </style>
@@ -106,3 +104,78 @@
   <div id="telemetryPanel" class="telemetry-cluster">
     <div class="data-box">
       <div class="data-label">ALTITUDE</div>
+      <div id="altValue" class="data-value">-- ft</div>
+    </div>
+    <div class="data-box">
+      <div class="data-label">DIRECTION</div>
+      <div id="dirValue" class="data-value">--</div>
+    </div>
+  </div>
+
+  <script>
+    let wakeLock = null;
+
+    function getDirectionString(heading) {
+      if (heading === null || isNaN(heading)) return "--";
+      const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+      const index = Math.round(((heading %= 360) < 0 ? heading + 360 : heading) / 45) % 8;
+      return directions[index];
+    }
+
+    async function requestWakeLock() {
+      if ('wakeLock' in navigator) {
+        try {
+          wakeLock = await navigator.wakeLock.request('screen');
+        } catch (err) {
+          console.warn("Wake Lock request failed:", err.message);
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', async () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        await requestWakeLock();
+      }
+    });
+
+    if ("geolocation" in navigator) {
+      navigator.geolocation.watchPosition(
+        (position) => {
+          if (!wakeLock) {
+            requestWakeLock();
+          }
+          
+          let speedMps = position.coords.speed;
+          if (speedMps === null || speedMps < 0) speedMps = 0; 
+          let speedMph = Math.round(speedMps * 2.23694);
+          document.getElementById('speedValue').innerText = speedMph;
+
+          let altMeters = position.coords.altitude;
+          if (altMeters !== null) {
+            let altFeet = Math.round(altMeters * 3.28084);
+            document.getElementById('altValue').innerText = altFeet + " ft";
+          }
+
+          let headingDegrees = position.coords.heading;
+          if (speedMph > 0 && headingDegrees !== null) {
+            document.getElementById('dirValue').innerText = getDirectionString(headingDegrees);
+          }
+        },
+        (error) => {
+          console.warn("GPS Error:", error.message);
+          if(error.code === 1) {
+             document.getElementById('speedValue').innerText = "GPS";
+          }
+        },
+        {
+          enableHighAccuracy: true, 
+          maximumAge: 0             
+        }
+      );
+    } else {
+      document.getElementById('speedValue').innerText = "N/A";
+    }
+  </script>
+
+</body>
+</html>
