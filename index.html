@@ -2,21 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Digital Speedometer</title>
   
+  <link rel="manifest" href="manifest.json">
+  
+  <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
   <style>
     /* Reset and Base Styles */
-    body {
+    html, body {
+      background-color: #000000 !important;
       margin: 0;
       padding: 0;
-      background-color: #000000;
+      box-sizing: border-box;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    body {
       color: #ffffff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       display: flex;
       flex-direction: column;
-      height: 100vh;
       overflow: hidden;
+      /* Ensures padding doesn't create accidental white margins */
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
 
     /* Big Digital Speedometer (Flexes to fill available space) */
@@ -26,10 +40,10 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
+      background-color: #000000;
     }
 
     #speedValue {
-      /* vmin scales the font based on the smallest screen dimension, keeping it huge */
       font-size: 40vmin; 
       font-weight: 900;
       line-height: 1;
@@ -68,7 +82,7 @@
     .data-value {
       font-size: 28px;
       font-weight: bold;
-      color: #00ffcc; /* Bright cyan for contrast */
+      color: #00ffcc; 
     }
 
     /* Landscape Mode - Hide the Telemetry Panel completely */
@@ -98,24 +112,47 @@
   </div>
 
   <script>
+    let wakeLock = null;
+
     // Helper function to convert compass degrees (0-360) into readable letters
     function getDirectionString(heading) {
       if (heading === null || isNaN(heading)) return "--";
       const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-      // Divides the 360 degree circle into 8 slices of 45 degrees
       const index = Math.round(((heading %= 360) < 0 ? heading + 360 : heading) / 45) % 8;
       return directions[index];
     }
+
+    // Function to request wake lock and keep screen bright
+    async function requestWakeLock() {
+      if ('wakeLock' in navigator) {
+        try {
+          wakeLock = await navigator.wakeLock.request('screen');
+          console.log("Screen Wake Lock active.");
+        } catch (err) {
+          console.warn("Wake Lock request failed:", err.message);
+        }
+      }
+    }
+
+    // Re-request wake lock automatically if you minimize the app and reopen it
+    document.addEventListener('visibilitychange', async () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        await requestWakeLock();
+      }
+    });
 
     // Start GPS Tracking if supported by the browser
     if ("geolocation" in navigator) {
       navigator.geolocation.watchPosition(
         (position) => {
+          // Engage the screen wake lock the moment we are successfully getting GPS data
+          if (!wakeLock) {
+            requestWakeLock();
+          }
           
           // 1. SPEED: Convert Meters per Second to MPH
           let speedMps = position.coords.speed;
-          // Phones return null when standing perfectly still indoors, fallback to 0
-          if (speedMps === null) speedMps = 0; 
+          if (speedMps === null || speedMps < 0) speedMps = 0; 
           let speedMph = Math.round(speedMps * 2.23694);
           document.getElementById('speedValue').innerText = speedMph;
 
@@ -128,22 +165,20 @@
 
           // 3. DIRECTION (Heading): Convert degrees to compass points
           let headingDegrees = position.coords.heading;
-          // Heading requires actual movement to calculate on most phones
           if (speedMph > 0 && headingDegrees !== null) {
             document.getElementById('dirValue').innerText = getDirectionString(headingDegrees);
           }
         },
         (error) => {
           console.warn("GPS Error:", error.message);
-          // Optional: Display error state if location services are disabled
           if(error.code === 1) {
              document.getElementById('speedValue').innerText = "GPS";
              document.getElementById('dirValue').innerText = "DENIED";
           }
         },
         {
-          enableHighAccuracy: true, // Forces maximum precision
-          maximumAge: 0             // Demands fresh data, no cached locations
+          enableHighAccuracy: true, 
+          maximumAge: 0             
         }
       );
     } else {

@@ -1,0 +1,9 @@
+{
+  "name": "Speedo",
+  "short_name": "Speedo",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme-color": "#000000",
+  "orientation": "any"
+}
