@@ -14,85 +14,79 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <style>
-    html {
+    /* Absolute pitch black root */
+    html, body {
       background-color: #000000 !important;
       color-scheme: dark !important;
-      height: 100%;
-    }
-
-    body {
-      background-color: #000000 !important;
       color: #ffffff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       margin: 0;
       padding: 0;
-      display: flex;
-      flex-direction: column;
       height: 100vh;
       width: 100vw;
-      overflow: hidden;
-      box-sizing: border-box;
+      overflow: hidden; 
+      position: relative; 
     }
 
-    /* Single unified container filling 100% of the display glass */
+    /* Speed container fills 100% of the screen */
     .speed-container {
-      flex: 1;
+      height: 100%;
+      width: 100%;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      background-color: #000000;
-      position: relative;
-      height: 100%;
-      width: 100%;
     }
 
     #speedValue {
-      font-size: 40vmin; 
+      font-size: 85vmin; /* Pushed to the absolute limits for 2 digits */
       font-weight: 900;
-      line-height: 1;
+      line-height: 0.8; /* Tightened so the numbers don't push the MPH down too far */
       text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+      margin-top: -5vh; /* Shifts the giant number slightly up to balance the screen */
     }
 
     .speed-unit {
-      font-size: 8vmin;
+      font-size: 12vmin; /* Scaled up to match the giant number */
       font-weight: bold;
       color: #888888;
-      margin-top: -10px;
+      margin-top: 5px;
     }
 
-    /* Floating Inline Telemetry (Zero separate panel tracking blocks) */
-    .inline-telemetry {
+    /* Floating Telemetry Panel - Anchored to the bottom */
+    .telemetry-panel {
+      position: absolute;
+      bottom: calc(40px + env(safe-area-inset-bottom)); 
+      left: 0;
+      width: 100%;
       display: flex;
-      gap: 40px;
-      margin-top: 30px;
+      justify-content: space-evenly;
+      align-items: center;
+      pointer-events: none; 
     }
 
-    .telemetry-item {
+    .data-box {
       text-align: center;
+      width: 45%;
     }
 
-    .telemetry-label {
-      font-size: 11px;
-      color: #555555;
+    .data-label {
+      font-size: 14px;
+      color: #666666;
       letter-spacing: 2px;
-      margin-bottom: 2px;
-      text-transform: uppercase;
+      margin-bottom: 5px;
     }
 
-    .telemetry-value {
-      font-size: 20px;
+    .data-value {
+      font-size: 28px; 
       font-weight: bold;
-      color: #00ffcc;
+      color: #00ffcc; 
     }
 
-    /* Auto-hide the secondary metrics cleanly in landscape if screen real estate gets tight */
+    /* Hide the telemetry when turning the phone sideways */
     @media (orientation: landscape) {
-      .inline-telemetry {
-        margin-top: 10px;
-      }
-      .telemetry-value {
-        font-size: 18px;
+      .telemetry-panel {
+        display: none; 
       }
     }
   </style>
@@ -102,16 +96,16 @@
   <div class="speed-container">
     <div id="speedValue">0</div>
     <div class="speed-unit">MPH</div>
-    
-    <div class="inline-telemetry">
-      <div class="telemetry-item">
-        <div class="telemetry-label">ALTITUDE</div>
-        <div id="altValue" class="telemetry-value">-- ft</div>
-      </div>
-      <div class="telemetry-item">
-        <div class="telemetry-label">DIRECTION</div>
-        <div id="dirValue" class="telemetry-value">--</div>
-      </div>
+  </div>
+
+  <div id="telemetryPanel" class="telemetry-panel">
+    <div class="data-box">
+      <div class="data-label">ALTITUDE</div>
+      <div id="altValue" class="data-value">-- ft</div>
+    </div>
+    <div class="data-box">
+      <div class="data-label">DIRECTION</div>
+      <div id="dirValue" class="data-value">--</div>
     </div>
   </div>
 
@@ -148,20 +142,17 @@
             requestWakeLock();
           }
           
-          // 1. SPEED
           let speedMps = position.coords.speed;
           if (speedMps === null || speedMps < 0) speedMps = 0; 
           let speedMph = Math.round(speedMps * 2.23694);
           document.getElementById('speedValue').innerText = speedMph;
 
-          // 2. ALTITUDE
           let altMeters = position.coords.altitude;
           if (altMeters !== null) {
             let altFeet = Math.round(altMeters * 3.28084);
             document.getElementById('altValue').innerText = altFeet + " ft";
           }
 
-          // 3. DIRECTION
           let headingDegrees = position.coords.heading;
           if (speedMph > 0 && headingDegrees !== null) {
             document.getElementById('dirValue').innerText = getDirectionString(headingDegrees);
