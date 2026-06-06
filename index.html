@@ -27,6 +27,9 @@
       width: 100vw;
       overflow: hidden; 
       position: relative; 
+      /* Makes the whole screen an invisible button and removes the blue tap flash */
+      cursor: pointer; 
+      -webkit-tap-highlight-color: transparent; 
     }
 
     .speed-container {
@@ -36,6 +39,7 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
+      pointer-events: none; /* Passes taps through to the background */
     }
 
     #speedValue {
@@ -61,7 +65,7 @@
       display: flex;
       justify-content: space-evenly;
       align-items: center;
-      pointer-events: none; 
+      pointer-events: none; /* Passes taps through so you don't accidentally highlight text */
     }
 
     .data-box {
@@ -89,7 +93,7 @@
     }
   </style>
 </head>
-<body>
+<body onclick="toggleFullScreen()">
 
   <div class="speed-container">
     <div id="speedValue">0</div>
@@ -109,6 +113,19 @@
 
   <script>
     let wakeLock = null;
+
+    // THE ENGINE: The function that forces the white bars away
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.warn(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
 
     function getDirectionString(heading) {
       if (heading === null || isNaN(heading)) return "--";
