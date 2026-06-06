@@ -13,7 +13,6 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <style>
-    /* Reset and Base Styles */
     html, body {
       background-color: #000000 !important;
       margin: 0;
@@ -29,11 +28,10 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      /* Ensures padding doesn't create accidental white margins */
       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
 
-    /* Big Digital Speedometer (Flexes to fill available space) */
+    /* Speed Container acts as a giant button now */
     .speed-container {
       flex: 1;
       display: flex;
@@ -41,6 +39,7 @@
       justify-content: center;
       align-items: center;
       background-color: #000000;
+      cursor: pointer; /* Gives a visual hint it can be tapped */
     }
 
     #speedValue {
@@ -57,7 +56,6 @@
       margin-top: -10px;
     }
 
-    /* Telemetry Panel (Bottom) */
     .telemetry-panel {
       display: flex;
       justify-content: space-evenly;
@@ -85,7 +83,6 @@
       color: #00ffcc; 
     }
 
-    /* Landscape Mode - Hide the Telemetry Panel completely */
     @media (orientation: landscape) {
       .telemetry-panel {
         display: none; 
@@ -95,7 +92,7 @@
 </head>
 <body>
 
-  <div class="speed-container">
+  <div class="speed-container" onclick="toggleImmersiveFullscreen()">
     <div id="speedValue">0</div>
     <div class="speed-unit">MPH</div>
   </div>
@@ -114,7 +111,6 @@
   <script>
     let wakeLock = null;
 
-    // Helper function to convert compass degrees (0-360) into readable letters
     function getDirectionString(heading) {
       if (heading === null || isNaN(heading)) return "--";
       const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
@@ -122,7 +118,20 @@
       return directions[index];
     }
 
-    // Function to request wake lock and keep screen bright
+    // New Function: Handles sliding away the phone's navigation bar
+    function toggleImmersiveFullscreen() {
+      if (!document.fullscreenElement) {
+        // Request edge-to-edge layout immersion from the operating system
+        document.documentElement.requestFullscreen()
+          .catch((err) => {
+            console.warn(`Error enabling immersive mode: ${err.message}`);
+          });
+      } else {
+        // If already fullscreen, tap again to bring the system bars back
+        document.exitFullscreen();
+      }
+    }
+
     async function requestWakeLock() {
       if ('wakeLock' in navigator) {
         try {
@@ -134,36 +143,30 @@
       }
     }
 
-    // Re-request wake lock automatically if you minimize the app and reopen it
     document.addEventListener('visibilitychange', async () => {
       if (wakeLock !== null && document.visibilityState === 'visible') {
         await requestWakeLock();
       }
     });
 
-    // Start GPS Tracking if supported by the browser
     if ("geolocation" in navigator) {
       navigator.geolocation.watchPosition(
         (position) => {
-          // Engage the screen wake lock the moment we are successfully getting GPS data
           if (!wakeLock) {
             requestWakeLock();
           }
           
-          // 1. SPEED: Convert Meters per Second to MPH
           let speedMps = position.coords.speed;
           if (speedMps === null || speedMps < 0) speedMps = 0; 
           let speedMph = Math.round(speedMps * 2.23694);
           document.getElementById('speedValue').innerText = speedMph;
 
-          // 2. ALTITUDE: Convert Meters to Feet
           let altMeters = position.coords.altitude;
           if (altMeters !== null) {
             let altFeet = Math.round(altMeters * 3.28084);
             document.getElementById('altValue').innerText = altFeet + " ft";
           }
 
-          // 3. DIRECTION (Heading): Convert degrees to compass points
           let headingDegrees = position.coords.heading;
           if (speedMph > 0 && headingDegrees !== null) {
             document.getElementById('dirValue').innerText = getDirectionString(headingDegrees);
