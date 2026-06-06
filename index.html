@@ -14,7 +14,6 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <style>
-    /* Tells the phone's rendering engine that the root environment is strictly pitch black night-mode */
     html {
       background-color: #000000 !important;
       color-scheme: dark !important;
@@ -33,35 +32,65 @@
       width: 100vw;
       overflow: hidden;
       box-sizing: border-box;
-      
-      /* Uses CSS environment variables to push the interface safe-space rules edge-to-edge */
       padding-bottom: env(safe-area-inset-bottom);
     }
 
-    /* Speed Container fills the screen window completely */
+    /* Big Digital Speedometer */
     .speed-container {
       flex: 1;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      background-color: #000000 !important;
-      height: 100%;
-      width: 100%;
+      background-color: #000000;
     }
 
     #speedValue {
-      font-size: 45vmin; 
+      font-size: 40vmin; 
       font-weight: 900;
       line-height: 1;
       text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
     }
 
     .speed-unit {
-      font-size: 9vmin;
+      font-size: 8vmin;
       font-weight: bold;
       color: #888888;
-      margin-top: 5px;
+      margin-top: -10px;
+    }
+
+    /* Telemetry Panel - No background box or borders to eliminate the white bar completely */
+    .telemetry-panel {
+      display: flex;
+      justify-content: space-evenly;
+      align-items: center;
+      padding: 25px 10px;
+      background-color: #000000 !important; /* Pure black background match */
+    }
+
+    .data-box {
+      text-align: center;
+      width: 45%;
+    }
+
+    .data-label {
+      font-size: 14px;
+      color: #666666;
+      letter-spacing: 2px;
+      margin-bottom: 5px;
+    }
+
+    .data-value {
+      font-size: 28px;
+      font-weight: bold;
+      color: #00ffcc; 
+    }
+
+    /* Landscape Mode - Hide the Telemetry Panel completely */
+    @media (orientation: landscape) {
+      .telemetry-panel {
+        display: none; 
+      }
     }
   </style>
 </head>
@@ -72,8 +101,26 @@
     <div class="speed-unit">MPH</div>
   </div>
 
+  <div id="telemetryPanel" class="telemetry-panel">
+    <div class="data-box">
+      <div class="data-label">ALTITUDE</div>
+      <div id="altValue" class="data-value">-- ft</div>
+    </div>
+    <div class="data-box">
+      <div class="data-label">DIRECTION</div>
+      <div id="dirValue" class="data-value">--</div>
+    </div>
+  </div>
+
   <script>
     let wakeLock = null;
+
+    function getDirectionString(heading) {
+      if (heading === null || isNaN(heading)) return "--";
+      const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+      const index = Math.round(((heading %= 360) < 0 ? heading + 360 : heading) / 45) % 8;
+      return directions[index];
+    }
 
     async function requestWakeLock() {
       if ('wakeLock' in navigator) {
@@ -98,11 +145,24 @@
             requestWakeLock();
           }
           
+          // 1. SPEED
           let speedMps = position.coords.speed;
           if (speedMps === null || speedMps < 0) speedMps = 0; 
-          
           let speedMph = Math.round(speedMps * 2.23694);
           document.getElementById('speedValue').innerText = speedMph;
+
+          // 2. ALTITUDE Restored
+          let altMeters = position.coords.altitude;
+          if (altMeters !== null) {
+            let altFeet = Math.round(altMeters * 3.28084);
+            document.getElementById('altValue').innerText = altFeet + " ft";
+          }
+
+          // 3. DIRECTION Restored
+          let headingDegrees = position.coords.heading;
+          if (speedMph > 0 && headingDegrees !== null) {
+            document.getElementById('dirValue').innerText = getDirectionString(headingDegrees);
+          }
         },
         (error) => {
           console.warn("GPS Error:", error.message);
