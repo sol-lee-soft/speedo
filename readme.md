@@ -11,7 +11,7 @@ Live Web App Link: **[sol-lee-soft.github.io/speedo](https://sol-lee-soft.github
 * **High-Contrast Interface:** Deep black background designed to save battery on OLED screens and eliminate night-driving glare.
 * **Auto-Scaling Layout:** Uses responsive browser view metrics (`vmin`) to keep the velocity readout as large as possible on any screen size.
 * **Dual-Orientation UI:** * **Portrait Mode:** Displays speed alongside auxiliary live telemetry (Altitude in feet, Compass Cardinal Direction).
-  * **Landscape Mode:** Automatically hides the bottom telemetry panel to provide a massive, distraction-free fullscreen speed layout.
+  * **Landscape Mode:** Automatically hides the bottom telemetry panel to provide a massive, distraction-free fullscreen speed layout when the screen is tapped.
 * **Hardware GPS Integration:** Taps directly into raw satellite data feeds with zero caching to ensure accurate velocity tracking.
 
 ---
