@@ -14,6 +14,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <style>
+    /* Reverted to the exact layout rules from the version that successfully hid the bars */
     html, body {
       background-color: #000000 !important;
       color-scheme: dark !important;
@@ -23,43 +24,48 @@
       padding: 0;
       height: 100vh;
       width: 100vw;
-      overflow: hidden; 
-      position: relative; 
-    }
-
-    .speed-container {
-      height: 100%;
-      width: 100%;
+      overflow: hidden; /* Stops the browser from thinking there is a page to scroll */
       display: flex;
       flex-direction: column;
-      justify-content: center;
+    }
+
+    /* A simple, flexible column that naturally keeps things away from the dangerous edges */
+    .app-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between; /* Pushes telemetry to the bottom naturally */
+      align-items: center;
+      padding-top: 15vh; /* Pushes the giant speed number down slightly */
+      padding-bottom: 5vh; /* Keeps telemetry safely above the home button zone */
+    }
+
+    .speed-cluster {
+      display: flex;
+      flex-direction: column;
       align-items: center;
     }
 
+    /* Dialed back slightly to 75vmin so it doesn't push the telemetry off the screen */
     #speedValue {
-      font-size: 60vmin; /* Increased by 50% for maximum visibility */
+      font-size: 75vmin; 
       font-weight: 900;
-      line-height: 1;
+      line-height: 0.8; 
       text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
     }
 
     .speed-unit {
-      font-size: 10vmin; /* Scaled up slightly to match the larger number */
+      font-size: 10vmin; 
       font-weight: bold;
       color: #888888;
-      margin-top: -10px;
+      margin-top: 10px;
     }
 
-    /* Floating Telemetry Panel */
-    .telemetry-panel {
-      position: absolute;
-      bottom: calc(40px + env(safe-area-inset-bottom)); 
-      left: 0;
+    .telemetry-cluster {
       width: 100%;
       display: flex;
       justify-content: space-evenly;
       align-items: center;
-      pointer-events: none; 
     }
 
     .data-box {
@@ -81,7 +87,7 @@
     }
 
     @media (orientation: landscape) {
-      .telemetry-panel {
+      .telemetry-cluster {
         display: none; 
       }
     }
@@ -89,19 +95,21 @@
 </head>
 <body>
 
-  <div class="speed-container">
-    <div id="speedValue">0</div>
-    <div class="speed-unit">MPH</div>
-  </div>
-
-  <div id="telemetryPanel" class="telemetry-panel">
-    <div class="data-box">
-      <div class="data-label">ALTITUDE</div>
-      <div id="altValue" class="data-value">-- ft</div>
+  <div class="app-wrapper">
+    <div class="speed-cluster">
+      <div id="speedValue">0</div>
+      <div class="speed-unit">MPH</div>
     </div>
-    <div class="data-box">
-      <div class="data-label">DIRECTION</div>
-      <div id="dirValue" class="data-value">--</div>
+
+    <div id="telemetryPanel" class="telemetry-cluster">
+      <div class="data-box">
+        <div class="data-label">ALTITUDE</div>
+        <div id="altValue" class="data-value">-- ft</div>
+      </div>
+      <div class="data-box">
+        <div class="data-label">DIRECTION</div>
+        <div id="dirValue" class="data-value">--</div>
+      </div>
     </div>
   </div>
 
