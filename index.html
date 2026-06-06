@@ -32,10 +32,9 @@
       width: 100vw;
       overflow: hidden;
       box-sizing: border-box;
-      padding-bottom: env(safe-area-inset-bottom);
     }
 
-    /* Big Digital Speedometer */
+    /* Single unified container filling 100% of the display glass */
     .speed-container {
       flex: 1;
       display: flex;
@@ -43,6 +42,9 @@
       justify-content: center;
       align-items: center;
       background-color: #000000;
+      position: relative;
+      height: 100%;
+      width: 100%;
     }
 
     #speedValue {
@@ -59,37 +61,38 @@
       margin-top: -10px;
     }
 
-    /* Telemetry Panel - No background box or borders to eliminate the white bar completely */
-    .telemetry-panel {
+    /* Floating Inline Telemetry (Zero separate panel tracking blocks) */
+    .inline-telemetry {
       display: flex;
-      justify-content: space-evenly;
-      align-items: center;
-      padding: 25px 10px;
-      background-color: #000000 !important; /* Pure black background match */
+      gap: 40px;
+      margin-top: 30px;
     }
 
-    .data-box {
+    .telemetry-item {
       text-align: center;
-      width: 45%;
     }
 
-    .data-label {
-      font-size: 14px;
-      color: #666666;
+    .telemetry-label {
+      font-size: 11px;
+      color: #555555;
       letter-spacing: 2px;
-      margin-bottom: 5px;
+      margin-bottom: 2px;
+      text-transform: uppercase;
     }
 
-    .data-value {
-      font-size: 28px;
+    .telemetry-value {
+      font-size: 20px;
       font-weight: bold;
-      color: #00ffcc; 
+      color: #00ffcc;
     }
 
-    /* Landscape Mode - Hide the Telemetry Panel completely */
+    /* Auto-hide the secondary metrics cleanly in landscape if screen real estate gets tight */
     @media (orientation: landscape) {
-      .telemetry-panel {
-        display: none; 
+      .inline-telemetry {
+        margin-top: 10px;
+      }
+      .telemetry-value {
+        font-size: 18px;
       }
     }
   </style>
@@ -99,16 +102,16 @@
   <div class="speed-container">
     <div id="speedValue">0</div>
     <div class="speed-unit">MPH</div>
-  </div>
-
-  <div id="telemetryPanel" class="telemetry-panel">
-    <div class="data-box">
-      <div class="data-label">ALTITUDE</div>
-      <div id="altValue" class="data-value">-- ft</div>
-    </div>
-    <div class="data-box">
-      <div class="data-label">DIRECTION</div>
-      <div id="dirValue" class="data-value">--</div>
+    
+    <div class="inline-telemetry">
+      <div class="telemetry-item">
+        <div class="telemetry-label">ALTITUDE</div>
+        <div id="altValue" class="telemetry-value">-- ft</div>
+      </div>
+      <div class="telemetry-item">
+        <div class="telemetry-label">DIRECTION</div>
+        <div id="dirValue" class="telemetry-value">--</div>
+      </div>
     </div>
   </div>
 
@@ -151,14 +154,14 @@
           let speedMph = Math.round(speedMps * 2.23694);
           document.getElementById('speedValue').innerText = speedMph;
 
-          // 2. ALTITUDE Restored
+          // 2. ALTITUDE
           let altMeters = position.coords.altitude;
           if (altMeters !== null) {
             let altFeet = Math.round(altMeters * 3.28084);
             document.getElementById('altValue').innerText = altFeet + " ft";
           }
 
-          // 3. DIRECTION Restored
+          // 3. DIRECTION
           let headingDegrees = position.coords.heading;
           if (speedMph > 0 && headingDegrees !== null) {
             document.getElementById('dirValue').innerText = getDirectionString(headingDegrees);
