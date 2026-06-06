@@ -7,46 +7,41 @@
   
   <link rel="manifest" href="manifest.json">
   
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="dark only">
   <meta name="background-color" content="#000000">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <style>
-    /* Reverted to the exact layout rules from the version that successfully hid the bars */
     html, body {
       background-color: #000000 !important;
-      color-scheme: dark !important;
       color: #ffffff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       margin: 0;
       padding: 0;
-      height: 100vh;
       width: 100vw;
-      overflow: hidden; /* Stops the browser from thinking there is a page to scroll */
-      display: flex;
-      flex-direction: column;
+      height: 100vh;
+      /* Webkit magic bullet to prevent mobile browsers from miscalculating the height */
+      height: -webkit-fill-available; 
+      overflow: hidden; 
+      position: relative; /* Allows us to pin elements directly to the glass */
     }
 
-    /* A simple, flexible column that naturally keeps things away from the dangerous edges */
-    .app-wrapper {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between; /* Pushes telemetry to the bottom naturally */
-      align-items: center;
-      padding-top: 15vh; /* Pushes the giant speed number down slightly */
-      padding-bottom: 5vh; /* Keeps telemetry safely above the home button zone */
-    }
-
+    /* Pinned exactly to the center of the screen */
     .speed-cluster {
+      position: absolute;
+      top: 45%; /* Locked slightly above dead-center for visual balance */
+      left: 50%;
+      transform: translate(-50%, -50%);
       display: flex;
       flex-direction: column;
       align-items: center;
+      width: 100%;
     }
 
-    /* Dialed back slightly to 75vmin so it doesn't push the telemetry off the screen */
     #speedValue {
       font-size: 75vmin; 
       font-weight: 900;
@@ -61,11 +56,16 @@
       margin-top: 10px;
     }
 
+    /* Pinned safely above the white bar zone */
     .telemetry-cluster {
+      position: absolute;
+      bottom: calc(60px + env(safe-area-inset-bottom)); /* Locked firmly above the home button zone */
+      left: 0;
       width: 100%;
       display: flex;
       justify-content: space-evenly;
       align-items: center;
+      pointer-events: none;
     }
 
     .data-box {
@@ -90,93 +90,19 @@
       .telemetry-cluster {
         display: none; 
       }
+      .speed-cluster {
+        top: 50%; /* Re-centers perfectly in landscape */
+      }
     }
   </style>
 </head>
 <body>
 
-  <div class="app-wrapper">
-    <div class="speed-cluster">
-      <div id="speedValue">0</div>
-      <div class="speed-unit">MPH</div>
-    </div>
-
-    <div id="telemetryPanel" class="telemetry-cluster">
-      <div class="data-box">
-        <div class="data-label">ALTITUDE</div>
-        <div id="altValue" class="data-value">-- ft</div>
-      </div>
-      <div class="data-box">
-        <div class="data-label">DIRECTION</div>
-        <div id="dirValue" class="data-value">--</div>
-      </div>
-    </div>
+  <div class="speed-cluster">
+    <div id="speedValue">0</div>
+    <div class="speed-unit">MPH</div>
   </div>
 
-  <script>
-    let wakeLock = null;
-
-    function getDirectionString(heading) {
-      if (heading === null || isNaN(heading)) return "--";
-      const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-      const index = Math.round(((heading %= 360) < 0 ? heading + 360 : heading) / 45) % 8;
-      return directions[index];
-    }
-
-    async function requestWakeLock() {
-      if ('wakeLock' in navigator) {
-        try {
-          wakeLock = await navigator.wakeLock.request('screen');
-        } catch (err) {
-          console.warn("Wake Lock request failed:", err.message);
-        }
-      }
-    }
-
-    document.addEventListener('visibilitychange', async () => {
-      if (wakeLock !== null && document.visibilityState === 'visible') {
-        await requestWakeLock();
-      }
-    });
-
-    if ("geolocation" in navigator) {
-      navigator.geolocation.watchPosition(
-        (position) => {
-          if (!wakeLock) {
-            requestWakeLock();
-          }
-          
-          let speedMps = position.coords.speed;
-          if (speedMps === null || speedMps < 0) speedMps = 0; 
-          let speedMph = Math.round(speedMps * 2.23694);
-          document.getElementById('speedValue').innerText = speedMph;
-
-          let altMeters = position.coords.altitude;
-          if (altMeters !== null) {
-            let altFeet = Math.round(altMeters * 3.28084);
-            document.getElementById('altValue').innerText = altFeet + " ft";
-          }
-
-          let headingDegrees = position.coords.heading;
-          if (speedMph > 0 && headingDegrees !== null) {
-            document.getElementById('dirValue').innerText = getDirectionString(headingDegrees);
-          }
-        },
-        (error) => {
-          console.warn("GPS Error:", error.message);
-          if(error.code === 1) {
-             document.getElementById('speedValue').innerText = "GPS";
-          }
-        },
-        {
-          enableHighAccuracy: true, 
-          maximumAge: 0             
-        }
-      );
-    } else {
-      document.getElementById('speedValue').innerText = "N/A";
-    }
-  </script>
-
-</body>
-</html>
+  <div id="telemetryPanel" class="telemetry-cluster">
+    <div class="data-box">
+      <div class="data-label">ALTITUDE</div>
