@@ -27,7 +27,6 @@
       width: 100vw;
       overflow: hidden; 
       position: relative; 
-      /* Makes the whole screen an invisible button and removes the blue tap flash */
       cursor: pointer; 
       -webkit-tap-highlight-color: transparent; 
     }
@@ -39,7 +38,7 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      pointer-events: none; /* Passes taps through to the background */
+      pointer-events: none; 
     }
 
     #speedValue {
@@ -65,7 +64,7 @@
       display: flex;
       justify-content: space-evenly;
       align-items: center;
-      pointer-events: none; /* Passes taps through so you don't accidentally highlight text */
+      pointer-events: none; 
     }
 
     .data-box {
@@ -93,7 +92,7 @@
     }
   </style>
 </head>
-<body onclick="toggleFullScreen()">
+<body onclick="appActivationInitializer()">
 
   <div class="speed-container">
     <div id="speedValue">0</div>
@@ -113,8 +112,23 @@
 
   <script>
     let wakeLock = null;
+    
+    // Barometer & Fusion State Tracking
+    let baseGpsAltitudeFeet = null;
+    let baseSeaLevelPressureHpa = 1013.25; // Standard global baseline until GPS calibrates it
+    let latestPressureHpa = null;
+    let sensorsInitialized = false;
 
-    // THE ENGINE: The function that forces the white bars away
+    // Master function that runs on your screen tap
+    function appActivationInitializer() {
+      toggleFullScreen();
+      
+      if (!sensorsInitialized) {
+        initializeHardwareSensors();
+        sensorsInitialized = true;
+      }
+    }
+
     function toggleFullScreen() {
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen().catch(err => {
@@ -127,11 +141,65 @@
       }
     }
 
+    // Hardware Compass Engine (60 updates per second)
+    function initializeHardwareSensors() {
+      // 1. Android & iOS Standard Device Orientation for Compass
+      if (window.DeviceOrientationEvent) {
+        window.addEventListener('deviceorientationabsolute', handleOrientationUpdate, true);
+        window.addEventListener('deviceorientation', handleOrientationUpdate, true);
+      }
+
+      // 2. Barometer API (Generic Sensor API used by modern mobile browsers)
+      if ('PressureSensor' in window) {
+        try {
+          const barometer = new PressureSensor({ frequency: 5 });
+          barometer.addEventListener('reading', () => {
+            latestPressureHpa = barometer.pressure;
+            calculateFusedAltitude();
+          });
+          barometer.start();
+        } catch (err) {
+          console.warn("Barometer interface found, but hardware failed to start:", err.message);
+        }
+      }
+    }
+
+    function handleOrientationUpdate(event) {
+      let heading = null;
+      
+      // Look for webkit specific heading first (highly accurate on mobile)
+      if (event.webkitCompassHeading !== undefined && event.webkitCompassHeading !== null) {
+        heading = event.webkitCompassHeading;
+      } else if (event.absolute === true && event.alpha !== null) {
+        // Fallback for standard absolute orientation
+        heading = 360 - event.alpha;
+      }
+
+      if (heading !== null) {
+        document.getElementById('dirValue').innerText = getDirectionString(heading);
+      }
+    }
+
     function getDirectionString(heading) {
       if (heading === null || isNaN(heading)) return "--";
       const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
       const index = Math.round(((heading %= 360) < 0 ? heading + 360 : heading) / 45) % 8;
       return directions[index];
+    }
+
+    // Mathematical formula combining air pressure with slow GPS anchor validation
+    function calculateFusedAltitude() {
+      if (!latestPressureHpa) return;
+
+      if (baseGpsAltitudeFeet !== null) {
+        // If we have a GPS baseline lock, use hypsometric calculation relative to that anchor point
+        let calculatedAlt = baseGpsAltitudeFeet + (44330 * (1 - Math.pow((latestPressureHpa / baseSeaLevelPressureHpa), 0.1902949)) * 3.28084);
+        document.getElementById('altValue').innerText = Math.round(calculatedAlt) + " ft";
+      } else {
+        // Standard Pressure Altitude fallback before GPS anchors baseline
+        let standardAltFeet = (1 - Math.pow((latestPressureHpa / 1013.25), 0.190284)) * 145366.45;
+        document.getElementById('altValue').innerText = Math.round(standardAltFeet) + " ft";
+      }
     }
 
     async function requestWakeLock() {
@@ -157,20 +225,25 @@
             requestWakeLock();
           }
           
+          // Speed Tracking (Left alone)
           let speedMps = position.coords.speed;
           if (speedMps === null || speedMps < 0) speedMps = 0; 
           let speedMph = Math.round(speedMps * 2.23694);
           document.getElementById('speedValue').innerText = speedMph;
 
+          // Altitude Anchor Calibration Engine
           let altMeters = position.coords.altitude;
           if (altMeters !== null) {
-            let altFeet = Math.round(altMeters * 3.28084);
-            document.getElementById('altValue').innerText = altFeet + " ft";
-          }
-
-          let headingDegrees = position.coords.heading;
-          if (speedMph > 0 && headingDegrees !== null) {
-            document.getElementById('dirValue').innerText = getDirectionString(headingDegrees);
+            let altFeet = altMeters * 3.28084;
+            
+            // Anchor the Barometer to the slow GPS coordinate baseline to offset weather shifts
+            if (baseGpsAltitudeFeet === null && latestPressureHpa !== null) {
+              baseGpsAltitudeFeet = altFeet;
+              baseSeaLevelPressureHpa = latestPressureHpa / Math.pow((1 - (altFeet / 3.28084) / 44330), 5.255);
+            } else if (latestPressureHpa === null) {
+              // Complete fallback if your phone lacks a physical barometer chip
+              document.getElementById('altValue').innerText = Math.round(altFeet) + " ft";
+            }
           }
         },
         (error) => {
