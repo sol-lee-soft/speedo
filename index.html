@@ -1,121 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Digital Speedometer</title>
-  
-  <link rel="manifest" href="manifest.json">
-  
-  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
-  <meta name="color-scheme" content="dark only">
-  <meta name="background-color" content="#000000">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-  <style>
-    html, body {
-      background-color: #000000 !important;
-      color: #ffffff;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      height: 100dvh; 
-      width: 100vw;
-      overflow: hidden; 
-      position: relative; 
-      cursor: pointer; 
-      -webkit-tap-highlight-color: transparent; 
-    }
-
-    .speed-container {
-      height: 100%;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      pointer-events: none; 
-    }
-
-    #speedValue {
-      font-size: 85vmin; 
-      font-weight: 900;
-      line-height: 0.8; 
-      text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
-      margin-top: -5dvh; 
-    }
-
-    .speed-unit {
-      font-size: 12vmin; 
-      font-weight: bold;
-      color: #888888;
-      margin-top: 5px;
-    }
-
-    .telemetry-panel {
-      position: absolute;
-      bottom: 8dvh; 
-      left: 0;
-      width: 100%;
-      display: flex;
-      justify-content: space-evenly;
-      align-items: center;
-      pointer-events: none; 
-    }
-
-    .data-box {
-      text-align: center;
-      width: 45%;
-    }
-
-    .data-label {
-      font-size: 14px;
-      color: #666666;
-      letter-spacing: 2px;
-      margin-bottom: 5px;
-    }
-
-    .data-value {
-      font-size: 28px; 
-      font-weight: bold;
-      color: #00ffcc; 
-    }
-
-    @media (orientation: landscape) {
-      .telemetry-panel {
-        display: none; 
-      }
-    }
-  </style>
-</head>
-<body onclick="appActivationInitializer()">
-
-  <div class="speed-container">
-    <div id="speedValue">0</div>
-    <div class="speed-unit">MPH</div>
-  </div>
-
-  <div id="telemetryPanel" class="telemetry-panel">
-    <div class="data-box">
-      <div class="data-label">ALTITUDE</div>
-      <div id="altValue" class="data-value">-- ft</div>
-    </div>
-    <div class="data-box">
-      <div class="data-label">DIRECTION</div>
-      <div id="dirValue" class="data-value">--</div>
-    </div>
-  </div>
-
-  <script>
+<script>
     let wakeLock = null;
     
     // Barometer & Fusion State Tracking
     let baseGpsAltitudeFeet = null;
-    let baseSeaLevelPressureHpa = 1013.25; // Standard global baseline until GPS calibrates it
+    let baseSeaLevelPressureHpa = null; 
     let latestPressureHpa = null;
     let sensorsInitialized = false;
 
@@ -141,15 +29,13 @@
       }
     }
 
-    // Hardware Compass Engine (60 updates per second)
+    // Hardware Compass & Barometer Initialization
     function initializeHardwareSensors() {
-      // 1. Android & iOS Standard Device Orientation for Compass
       if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientationabsolute', handleOrientationUpdate, true);
         window.addEventListener('deviceorientation', handleOrientationUpdate, true);
       }
 
-      // 2. Barometer API (Generic Sensor API used by modern mobile browsers)
       if ('PressureSensor' in window) {
         try {
           const barometer = new PressureSensor({ frequency: 5 });
@@ -159,19 +45,16 @@
           });
           barometer.start();
         } catch (err) {
-          console.warn("Barometer interface found, but hardware failed to start:", err.message);
+          console.warn("Barometer hardware failed to start:", err.message);
         }
       }
     }
 
     function handleOrientationUpdate(event) {
       let heading = null;
-      
-      // Look for webkit specific heading first (highly accurate on mobile)
       if (event.webkitCompassHeading !== undefined && event.webkitCompassHeading !== null) {
         heading = event.webkitCompassHeading;
       } else if (event.absolute === true && event.alpha !== null) {
-        // Fallback for standard absolute orientation
         heading = 360 - event.alpha;
       }
 
@@ -189,17 +72,14 @@
 
     // Mathematical formula combining air pressure with slow GPS anchor validation
     function calculateFusedAltitude() {
-      if (!latestPressureHpa) return;
-
-      if (baseGpsAltitudeFeet !== null) {
-        // If we have a GPS baseline lock, use hypsometric calculation relative to that anchor point
-        let calculatedAlt = baseGpsAltitudeFeet + (44330 * (1 - Math.pow((latestPressureHpa / baseSeaLevelPressureHpa), 0.1902949)) * 3.28084);
-        document.getElementById('altValue').innerText = Math.round(calculatedAlt) + " ft";
-      } else {
-        // Standard Pressure Altitude fallback before GPS anchors baseline
-        let standardAltFeet = (1 - Math.pow((latestPressureHpa / 1013.25), 0.190284)) * 145366.45;
-        document.getElementById('altValue').innerText = Math.round(standardAltFeet) + " ft";
+      // FIX: If we don't have a GPS anchor and a local pressure reading yet, DO NOT guess.
+      if (!latestPressureHpa || baseGpsAltitudeFeet === null || baseSeaLevelPressureHpa === null) {
+        return; 
       }
+
+      // Calculate relative altitude change from our calibrated weather baseline
+      let calculatedAlt = baseGpsAltitudeFeet + (44330 * (1 - Math.pow((latestPressureHpa / baseSeaLevelPressureHpa), 0.1902949)) * 3.28084);
+      document.getElementById('altValue').innerText = Math.round(calculatedAlt) + " ft";
     }
 
     async function requestWakeLock() {
@@ -225,7 +105,7 @@
             requestWakeLock();
           }
           
-          // Speed Tracking (Left alone)
+          // Speed Tracking
           let speedMps = position.coords.speed;
           if (speedMps === null || speedMps < 0) speedMps = 0; 
           let speedMph = Math.round(speedMps * 2.23694);
@@ -236,13 +116,17 @@
           if (altMeters !== null) {
             let altFeet = altMeters * 3.28084;
             
-            // Anchor the Barometer to the slow GPS coordinate baseline to offset weather shifts
-            if (baseGpsAltitudeFeet === null && latestPressureHpa !== null) {
+            // If this is the first clean GPS reading, lock it in as the absolute true altitude baseline
+            if (baseGpsAltitudeFeet === null) {
               baseGpsAltitudeFeet = altFeet;
-              baseSeaLevelPressureHpa = latestPressureHpa / Math.pow((1 - (altFeet / 3.28084) / 44330), 5.255);
-            } else if (latestPressureHpa === null) {
-              // Complete fallback if your phone lacks a physical barometer chip
-              document.getElementById('altValue').innerText = Math.round(altFeet) + " ft";
+              
+              // If the barometer is running, reverse-calculate what the local sea level pressure actually is right now
+              if (latestPressureHpa !== null) {
+                baseSeaLevelPressureHpa = latestPressureHpa / Math.pow((1 - (altFeet / 3.28084) / 44330), 5.255);
+              } else {
+                // Complete fallback if your phone lacks a physical barometer chip entirely
+                document.getElementById('altValue').innerText = Math.round(altFeet) + " ft";
+              }
             }
           }
         },
@@ -261,6 +145,3 @@
       document.getElementById('speedValue').innerText = "N/A";
     }
   </script>
-
-</body>
-</html>
