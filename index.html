@@ -113,8 +113,11 @@
   <script>
     let wakeLock = null;
     let sensorsInitialized = false;
+    
+    // Low-Pass Filter variables to stabilize the compass jitter
+    let smoothedHeading = null;
+    const FILTER_FACTOR = 0.05; // Drop this lower (e.g., 0.02) for more smoothing, raise it for faster tracking
 
-    // Direct, stable entry point on glass tap
     function appActivationInitializer() {
       toggleFullScreen();
       
@@ -136,8 +139,24 @@
       }
     }
 
-    // Pure, stable device orientation listener
-    function initializeCompass() {
+    async function initializeCompass() {
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          const permissionState = await DeviceOrientationEvent.requestPermission();
+          if (permissionState === 'granted') {
+            attachCompassListener();
+          } else {
+            console.warn("Compass permission denied.");
+          }
+        } catch (err) {
+          console.error("Error requesting compass permission:", err);
+        }
+      } else {
+        attachCompassListener();
+      }
+    }
+
+    function attachCompassListener() {
       if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientationabsolute', handleOrientationUpdate, true);
         window.addEventListener('deviceorientation', handleOrientationUpdate, true);
@@ -145,24 +164,38 @@
     }
 
     function handleOrientationUpdate(event) {
-      let heading = null;
+      let rawHeading = null;
       if (event.webkitCompassHeading !== undefined && event.webkitCompassHeading !== null) {
-        heading = event.webkitCompassHeading;
+        rawHeading = event.webkitCompassHeading;
       } else if (event.absolute === true && event.alpha !== null) {
-        heading = 360 - event.alpha;
+        rawHeading = 360 - event.alpha;
       } else if (event.alpha !== null) {
-        heading = 360 - event.alpha;
+        rawHeading = 360 - event.alpha;
       }
 
-      if (heading !== null) {
-        document.getElementById('dirValue').innerText = getDirectionString(heading);
+      if (rawHeading !== null) {
+        // Handle the 0/360 degree wrap-around boundary cleanly so the filter doesn't spin backward
+        if (smoothedHeading === null) {
+          smoothedHeading = rawHeading;
+        } else {
+          let diff = rawHeading - smoothedHeading;
+          if (diff > 180) diff -= 360;
+          if (diff < -180) diff += 360;
+          
+          // Apply exponential low-pass filter math
+          smoothedHeading += diff * FILTER_FACTOR;
+          smoothedHeading = (smoothedHeading + 360) % 360;
+        }
+
+        document.getElementById('dirValue').innerText = getDirectionString(smoothedHeading);
       }
     }
 
     function getDirectionString(heading) {
       if (heading === null || isNaN(heading)) return "--";
       const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-      const index = Math.round(((heading %= 360) < 0 ? heading + 360 : heading) / 45) % 8;
+      // Quick round calculation to match 45-degree chunks
+      const index = Math.round(heading / 45) % 8;
       return directions[index];
     }
 
@@ -182,7 +215,6 @@
       }
     });
 
-    // Clean, direct GPS Telemetry Loop
     if ("geolocation" in navigator) {
       navigator.geolocation.watchPosition(
         (position) => {
@@ -190,13 +222,11 @@
             requestWakeLock();
           }
           
-          // Pure GPS Speed
           let speedMps = position.coords.speed;
           if (speedMps === null || speedMps < 0) speedMps = 0; 
           let speedMph = Math.round(speedMps * 2.23694);
           document.getElementById('speedValue').innerText = speedMph;
 
-          // Pure GPS Altitude (No Barometer Interference)
           let altMeters = position.coords.altitude;
           if (altMeters !== null) {
             let altFeet = altMeters * 3.28084;
