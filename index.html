@@ -112,14 +112,9 @@
 
   <script>
     let wakeLock = null;
-    
-    // Barometer & Fusion State Tracking
-    let baseGpsAltitudeFeet = null;
-    let baseSeaLevelPressureHpa = null; 
-    let latestPressureHpa = null;
     let sensorsInitialized = false;
 
-    // Master function that runs on your screen tap
+    // Master function that runs on your screen tap to go fullscreen and engage stable compass
     function appActivationInitializer() {
       toggleFullScreen();
       
@@ -141,40 +136,10 @@
       }
     }
 
-    // Hardware Compass & Barometer Request Layer
-    async function initializeHardwareSensors() {
-      // Chrome/iOS Security permission gate check
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        try {
-          const permissionState = await DeviceOrientationEvent.requestPermission();
-          if (permissionState === 'granted') {
-            attachCompassListener();
-          }
-        } catch (err) {
-          console.warn("Compass permission request rejected:", err);
-        }
-      } else {
-        // Fallback for standard Android Chrome which doesn't require explicit popup permission
-        attachCompassListener();
-      }
-
-      // Barometer Hook
-      if ('PressureSensor' in window) {
-        try {
-          const barometer = new PressureSensor({ frequency: 5 });
-          barometer.addEventListener('reading', () => {
-            latestPressureHpa = barometer.pressure;
-            calculateFusedAltitude();
-          });
-          barometer.start();
-        } catch (err) {
-          console.warn("Barometer hardware found but failed to engage:", err.message);
-        }
-      }
-    }
-
-    function attachCompassListener() {
+    // Stable Compass Engine
+    function initializeHardwareSensors() {
       if (window.DeviceOrientationEvent) {
+        // Absolute orientation handles true geographic north without lagging/spinning out
         window.addEventListener('deviceorientationabsolute', handleOrientationUpdate, true);
         window.addEventListener('deviceorientation', handleOrientationUpdate, true);
       }
@@ -182,12 +147,13 @@
 
     function handleOrientationUpdate(event) {
       let heading = null;
+      
       if (event.webkitCompassHeading !== undefined && event.webkitCompassHeading !== null) {
         heading = event.webkitCompassHeading;
       } else if (event.absolute === true && event.alpha !== null) {
         heading = 360 - event.alpha;
       } else if (event.alpha !== null) {
-        heading = 360 - event.alpha; // Standard fallback
+        heading = 360 - event.alpha; 
       }
 
       if (heading !== null) {
@@ -200,19 +166,6 @@
       const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
       const index = Math.round(((heading %= 360) < 0 ? heading + 360 : heading) / 45) % 8;
       return directions[index];
-    }
-
-    // Mathematical formula combining air pressure with slow GPS anchor validation
-    function calculateFusedAltitude() {
-      // Safe fallback: If the GPS hasn't anchored our weather elevation block yet, look for standard GPS backup
-      if (baseGpsAltitudeFeet === null || baseSeaLevelPressureHpa === null) {
-        return; 
-      }
-
-      if (latestPressureHpa) {
-        let calculatedAlt = baseGpsAltitudeFeet + (44330 * (1 - Math.pow((latestPressureHpa / baseSeaLevelPressureHpa), 0.1902949)) * 3.28084);
-        document.getElementById('altValue').innerText = Math.round(calculatedAlt) + " ft";
-      }
     }
 
     async function requestWakeLock() {
@@ -244,25 +197,13 @@
           let speedMph = Math.round(speedMps * 2.23694);
           document.getElementById('speedValue').innerText = speedMph;
 
-          // Altitude Anchor Calibration Engine
+          // Stable GPS Altitude Engine
           let altMeters = position.coords.altitude;
           if (altMeters !== null) {
             let altFeet = altMeters * 3.28084;
-            
-            // Core Logic Fix: Always display GPS altitude instantly if sensor fusion hasn't finished baseline matching
-            if (baseGpsAltitudeFeet === null) {
-              baseGpsAltitudeFeet = altFeet;
-              
-              if (latestPressureHpa !== null) {
-                baseSeaLevelPressureHpa = latestPressureHpa / Math.pow((1 - (altMeters / 44330)), 5.255);
-                calculateFusedAltitude();
-              } else {
-                document.getElementById('altValue').innerText = Math.round(altFeet) + " ft";
-              }
-            } else if (baseSeaLevelPressureHpa === null) {
-              // Direct backup update if a phone completely lacks a barometer chip
-              document.getElementById('altValue').innerText = Math.round(altFeet) + " ft";
-            }
+            document.getElementById('altValue').innerText = Math.round(altFeet) + " ft";
+          } else {
+            document.getElementById('altValue').innerText = "-- ft";
           }
         },
         (error) => {
