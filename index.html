@@ -114,12 +114,12 @@
     let wakeLock = null;
     let sensorsInitialized = false;
 
-    // Master function that runs on your screen tap to go fullscreen and engage stable compass
+    // Direct, stable entry point on glass tap
     function appActivationInitializer() {
       toggleFullScreen();
       
       if (!sensorsInitialized) {
-        initializeHardwareSensors();
+        initializeCompass();
         sensorsInitialized = true;
       }
     }
@@ -136,10 +136,9 @@
       }
     }
 
-    // Stable Compass Engine
-    function initializeHardwareSensors() {
+    // Pure, stable device orientation listener
+    function initializeCompass() {
       if (window.DeviceOrientationEvent) {
-        // Absolute orientation handles true geographic north without lagging/spinning out
         window.addEventListener('deviceorientationabsolute', handleOrientationUpdate, true);
         window.addEventListener('deviceorientation', handleOrientationUpdate, true);
       }
@@ -147,13 +146,12 @@
 
     function handleOrientationUpdate(event) {
       let heading = null;
-      
       if (event.webkitCompassHeading !== undefined && event.webkitCompassHeading !== null) {
         heading = event.webkitCompassHeading;
       } else if (event.absolute === true && event.alpha !== null) {
         heading = 360 - event.alpha;
       } else if (event.alpha !== null) {
-        heading = 360 - event.alpha; 
+        heading = 360 - event.alpha;
       }
 
       if (heading !== null) {
@@ -184,6 +182,7 @@
       }
     });
 
+    // Clean, direct GPS Telemetry Loop
     if ("geolocation" in navigator) {
       navigator.geolocation.watchPosition(
         (position) => {
@@ -191,13 +190,13 @@
             requestWakeLock();
           }
           
-          // Speed Tracking
+          // Pure GPS Speed
           let speedMps = position.coords.speed;
           if (speedMps === null || speedMps < 0) speedMps = 0; 
           let speedMph = Math.round(speedMps * 2.23694);
           document.getElementById('speedValue').innerText = speedMph;
 
-          // Stable GPS Altitude Engine
+          // Pure GPS Altitude (No Barometer Interference)
           let altMeters = position.coords.altitude;
           if (altMeters !== null) {
             let altFeet = altMeters * 3.28084;
